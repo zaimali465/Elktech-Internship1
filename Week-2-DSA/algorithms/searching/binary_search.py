@@ -26,3 +26,4 @@ while low <= high:
 
 if found == False:
     print("Element not found")
+    
