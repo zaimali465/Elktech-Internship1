@@ -1,41 +1,56 @@
 const express = require("express");
-const app = express();
-const PORT = 3000;
-const Joi = require("joi");
+const session = require("express-session");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const Joi = require("joi");
+
+const app = express();
+const PORT = 3000;
 app.use(express.json());
-const secret = "mysecretkey";
 
+app.use(session({
+    secret: "sessionsecret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false }
+}));
+
+const JWT_SECRET = "jwtsecret";
 let users = [];
-let tasks = [];
-
 const signupSchema = Joi.object({
     name: Joi.string().min(3).required(),
     email: Joi.string().email().required(),
     password: Joi.string().min(6).required()
 });
-
-const taskSchema = Joi.object({
-    title: Joi.string().min(1).required(),
-    status: Joi.string().valid("pending", "completed").optional()
+const loginSchema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().required()
 });
 
-function auth(req, res, next) {
-    const token = req.headers["authorization"];
-    if (!token) return res.status(401).json({ message: "No token provided" });
+function authJWT(req, res, next) {
+    const authHeader = req.headers["authorization"];
+    if (!authHeader || !authHeader.startsWith("Bearer "))
+        return res.status(401).json({ message: "JWT token required" });
+    const token = authHeader.split(" ")[1];
     try {
-        const decoded = jwt.verify(token, secret);
+        const decoded = jwt.verify(token, JWT_SECRET);
         req.user = decoded;
         next();
     } catch {
-        return res.status(401).json({ message: "Invalid token" });
+        return res.status(401).json({ message: "Invalid JWT token" });
     }
 }
 
+function authSession(req, res, next) {
+    if (!req.session.user)
+        return res.status(401).json({ message: "Session login required" });
+
+    next();
+}
 app.post("/signup", async(req, res) => {
     const { error } = signupSchema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.details[0].message });
+    if (error)
+        return res.status(400).json({ message: error.details[0].message });
 
     const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const user = {
@@ -45,63 +60,55 @@ app.post("/signup", async(req, res) => {
         password: hashedPassword
     };
     users.push(user);
-    res.status(201).json({ message: "User created!", user: { id: user.id, name: user.name, email: user.email } });
+
+    res.json({ message: "User registered" });
 });
-
-
-app.post("/login", async(req, res) => {
+app.post("/login-jwt", async(req, res) => {
+    const { error } = loginSchema.validate(req.body);
+    if (error)
+        return res.status(400).json({ message: error.details[0].message });
     const user = users.find(u => u.email === req.body.email);
-    if (!user) return res.status(401).json({ message: "Invalid email" });
-
+    if (!user)
+        return res.status(401).json({ message: "Invalid credentials" });
     const validPass = await bcrypt.compare(req.body.password, user.password);
-    if (!validPass) return res.status(401).json({ message: "Invalid password" });
-
-    const token = jwt.sign({ id: user.id, email: user.email }, secret, { expiresIn: "1h" });
-    res.json({ message: "Login successful", token });
+    if (!validPass)
+        return res.status(401).json({ message: "Invalid credentials" });
+    const token = jwt.sign({ id: user.id, email: user.email },
+        JWT_SECRET, { expiresIn: "1h" }
+    );
+    res.json({ message: "JWT Login successful", token });
+});
+app.post("/login-session", async(req, res) => {
+    const user = users.find(u => u.email === req.body.email);
+    if (!user)
+        return res.status(401).json({ message: "Invalid credentials" });
+    const validPass = await bcrypt.compare(req.body.password, user.password);
+    if (!validPass)
+        return res.status(401).json({ message: "Invalid credentials" });
+    req.session.user = {
+        id: user.id,
+        email: user.email
+    };
+    res.json({ message: "Session login successful" });
 });
 
-
-app.get("/users", auth, (req, res) => res.json(users));
-
-app.put("/users/:id", auth, (req, res) => {
-    const user = users.find(u => u.id === parseInt(req.params.id));
-    if (!user) return res.status(404).json({ message: "User not found" });
-    user.name = req.body.name || user.name;
-    res.json(user);
+app.get("/protected-jwt", authJWT, (req, res) => {
+    res.json({
+        message: "Accessed with JWT",
+        user: req.user
+    });
 });
-
-
-app.delete("/users/:id", auth, (req, res) => {
-    const index = users.findIndex(u => u.id === parseInt(req.params.id));
-    if (index === -1) return res.status(404).json({ message: "User not found" });
-    const deleted = users.splice(index, 1);
-    res.json(deleted[0]);
+app.get("/protected-session", authSession, (req, res) => {
+    res.json({
+        message: "Accessed with Session",
+        user: req.session.user
+    });
 });
-
-app.get("/tasks", auth, (req, res) => res.json(tasks));
-
-app.post("/tasks", auth, (req, res) => {
-    const { error } = taskSchema.validate(req.body);
-    if (error) return res.status(400).json({ message: error.details[0].message });
-
-    const task = { id: tasks.length + 1, title: req.body.title, status: req.body.status || "pending" };
-    tasks.push(task);
-    res.status(201).json(task);
+app.post("/logout-session", authSession, (req, res) => {
+    req.session.destroy(() => {
+        res.json({ message: "Session logged out" });
+    });
 });
-
-app.put("/tasks/:id", auth, (req, res) => {
-    const task = tasks.find(t => t.id === parseInt(req.params.id));
-    if (!task) return res.status(404).json({ message: "Task not found" });
-    task.title = req.body.title || task.title;
-    task.status = req.body.status || task.status;
-    res.json(task);
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
-
-app.delete("/tasks/:id", auth, (req, res) => {
-    const index = tasks.findIndex(t => t.id === parseInt(req.params.id));
-    if (index === -1) return res.status(404).json({ message: "Task not found" });
-    const deleted = tasks.splice(index, 1);
-    res.json(deleted[0]);
-});
-
-app.listen(PORT, () => console.log(`Assessment Server running on port ${PORT}`));
