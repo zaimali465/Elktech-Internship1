@@ -9,12 +9,12 @@ function Home() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        setLoggedInUser(localStorage.getItem('loggedInUser'));
+        setLoggedInUser(getItem('loggedInUser'));
     }, []);
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('loggedInUser');
+        removeItem('token');
+        removeItem('loggedInUser');
         handleSuccess('User logged out');
         setTimeout(() => navigate('/login'), 1000);
     };
@@ -51,17 +51,7 @@ function Home() {
             <h1>Welcome {loggedInUser}</h1>
             <button onClick={handleLogout}>Logout</button>
 
-            <div>
-                {products && products.length > 0 ? (
-                    products.map((item, index) => (
-                        <ul key={index}>
-                            <li>{item.name} : ${item.price}</li>
-                        </ul>
-                    ))
-                ) : (
-                    <p>No products available</p>
-                )}
-            </div>
+
 
             <ToastContainer />
         </div>
