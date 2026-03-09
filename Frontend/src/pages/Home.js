@@ -21,8 +21,8 @@ function Home() {
 
     const fetchProducts = async () => {
         try {
-            const url = "http://localhost:8000/products"; // Corrected URL
-            const token = localStorage.getItem('token');
+            
+            const token = getItem('token');
 
             const response = await fetch(url, {
                 headers: {
