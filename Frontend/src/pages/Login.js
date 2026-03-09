@@ -25,7 +25,7 @@ function Login() {
         }
 
         try {
-            // Backend URL: use environment variable if available
+           
             const url = `${process.env.REACT_APP_API_URL || "http://localhost:8000"}/auth/login`;
 
             const response = await fetch(url, {
@@ -39,8 +39,8 @@ function Login() {
 
             if (success) {
                 handleSuccess(message);
-                localStorage.setItem('token', jwtToken);
-                localStorage.setItem('loggedInUser', name);
+                setItem('token', jwtToken);
+                setItem('loggedInUser', name);
                 setTimeout(() => navigate('/home'), 1000);
             } else if (error) {
                 handleError(error?.details?.[0]?.message || error);
