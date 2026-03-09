@@ -70,7 +70,7 @@ const handleAddTodo = () => {
     const updatedTodoArr = [...allTodos, newTodoItem];
 
     setTodos(updatedTodoArr);
-    localStorage.setItem("todolist", JSON.stringify(updatedTodoArr));
+    setItem("todolist", JSON.stringify(updatedTodoArr));
 
     setNewTitle("");
     setNewDescription("");
