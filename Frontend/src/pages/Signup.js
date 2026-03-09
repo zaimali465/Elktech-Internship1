@@ -26,7 +26,6 @@ function Signup() {
         }
 
         try {
-            // Backend URL: use environment variable if available
             const url = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/auth/signup`;
 
             const response = await fetch(url, {
