@@ -1,0 +1,2 @@
+Hello world! This is a NodeJS CLI tool example.
+Hello NodeJS! This is fun.
